@@ -1,0 +1,29 @@
+monitoring:
+  health_check_interval: 60       # seconds between background checks
+  notification_cooldown: 300      # min seconds between alerts per user per task
+  health_log_retention_days: 30   # keep health logs for N days
+
+tasks:
+  documentation:
+    enabled: true
+    display_name: "Documentation Pipeline"
+    description: "Monitors vLLM, Jira, Claude CLI, Cycle Runner, and GPU"
+    checks:
+      vllm:
+        url: "${VLLM_API_URL}/models"
+        timeout: 10
+      jira:
+        enabled: true
+      claude_cli:
+        command: "claude --version"
+        timeout: 15
+      cycle_runner:
+        lock_path: "${CYCLE_RUNNER_LOCK_PATH}"
+        stale_hours: 4
+      gpu:
+        enabled: true
+        warning_utilization: 90
+        warning_temperature: 80
+
+logging:
+  level: INFO
