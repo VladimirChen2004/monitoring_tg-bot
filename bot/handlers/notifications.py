@@ -17,10 +17,11 @@ async def _build_notify_keyboard(
     buttons = []
     for task in task_registry.all():
         enabled = prefs.get(task.name, False)
-        icon = "\u2705" if enabled else "\u274c"
+        icon = "\U0001f514" if enabled else "\U0001f515"
+        label = "ON" if enabled else "OFF"
         buttons.append([
             InlineKeyboardButton(
-                text=f"{icon} {task.display_name}",
+                text=f"{icon} {task.display_name} [{label}]",
                 callback_data=f"notify:toggle:{task.name}",
             )
         ])
@@ -34,7 +35,9 @@ async def cmd_notify(
 ):
     keyboard = await _build_notify_keyboard(session, db_user.id, task_registry)
     await message.answer(
-        "<b>Notification Settings</b>\n\nTap to toggle notifications per task:",
+        "<b>Настройки уведомлений</b>\n\n"
+        "\U0001f514 = включено, \U0001f515 = выключено\n"
+        "Нажмите, чтобы переключить:",
         parse_mode="HTML",
         reply_markup=keyboard,
     )
@@ -45,9 +48,15 @@ async def cb_notify_toggle(
     callback: CallbackQuery, db_user: User, session, task_registry: TaskRegistry
 ):
     task_name = callback.data.split(":", 2)[2]
+    task = task_registry.get(task_name)
+    display = task.display_name if task else task_name
     new_state = await toggle_notification(session, callback.from_user.id, task_name)
-    state_text = "ON" if new_state else "OFF"
-    await callback.answer(f"{task_name}: {state_text}")
+
+    if new_state:
+        confirm = f"\U0001f514 Уведомления для «{display}» включены"
+    else:
+        confirm = f"\U0001f515 Уведомления для «{display}» выключены"
+    await callback.answer(confirm, show_alert=True)
 
     keyboard = await _build_notify_keyboard(session, callback.from_user.id, task_registry)
     await callback.message.edit_reply_markup(reply_markup=keyboard)
