@@ -54,15 +54,31 @@ def format_gpu_report(check: HealthCheckResult) -> str:
 
     lines = ["<b>GPU Status</b>", "\u2550" * 20]
     for g in gpus:
-        util = g["utilization"]
-        bar_filled = util // 10
-        bar = "\u2588" * bar_filled + "\u2591" * (10 - bar_filled)
-        mem_pct = (g["memory_used"] / g["memory_total"] * 100) if g["memory_total"] else 0
+        util = g.get("utilization")
+        temp = g.get("temperature")
+        mem_used = g.get("memory_used")
+        mem_total = g.get("memory_total")
+
+        if util is not None:
+            bar_filled = util // 10
+            bar = "\u2588" * bar_filled + "\u2591" * (10 - bar_filled)
+            util_line = f"  Utilization: {util}%  [{bar}]"
+        else:
+            util_line = "  Utilization: N/A"
+
+        if mem_used is not None and mem_total is not None:
+            mem_pct = mem_used / mem_total * 100
+            mem_line = f"  Memory:      {mem_used} / {mem_total} MB ({mem_pct:.0f}%)"
+        else:
+            mem_line = "  Memory:      unified (shared with CPU)"
+
+        temp_line = f"  Temperature: {temp}\u00b0C" if temp is not None else "  Temperature: N/A"
+
         lines.extend([
             f"\n<b>GPU{g['index']}: {g['name']}</b>",
-            f"  Utilization: {util}%  [{bar}]",
-            f"  Memory:      {g['memory_used']} / {g['memory_total']} MB ({mem_pct:.0f}%)",
-            f"  Temperature: {g['temperature']}\u00b0C",
+            util_line,
+            mem_line,
+            temp_line,
         ])
 
     return "\n".join(lines)

@@ -94,3 +94,21 @@ async def test_gpu_check_parses_output():
         assert result.status == CheckStatus.OK
         assert result.details["gpus"][0]["utilization"] == 34
         assert result.details["gpus"][0]["temperature"] == 52
+
+
+@pytest.mark.asyncio
+async def test_gpu_check_unified_memory():
+    """DGX Spark returns [N/A] for memory fields."""
+    nvidia_output = b"0, NVIDIA GB10, 3, [N/A], [N/A], 47\n"
+    mock_proc = AsyncMock()
+    mock_proc.communicate = AsyncMock(return_value=(nvidia_output, b""))
+    mock_proc.returncode = 0
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+        check = GPUCheck()
+        result = await check.execute()
+        assert result.status == CheckStatus.OK
+        assert result.details["gpus"][0]["utilization"] == 3
+        assert result.details["gpus"][0]["memory_used"] is None
+        assert result.details["gpus"][0]["memory_total"] is None
+        assert result.details["gpus"][0]["temperature"] == 47

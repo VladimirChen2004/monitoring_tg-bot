@@ -3,6 +3,14 @@ import asyncio
 from bot.checks.base import BaseHealthCheck, CheckStatus, HealthCheckResult
 
 
+def _parse_int(val: str) -> int | None:
+    """Parse int from nvidia-smi output, handling [N/A] for unified memory."""
+    val = val.strip().strip("[]")
+    if val in ("N/A", ""):
+        return None
+    return int(val)
+
+
 class GPUCheck(BaseHealthCheck):
 
     def __init__(self, name: str = "GPU Status", warning_util: int = 90, warning_temp: int = 80):
@@ -50,10 +58,10 @@ class GPUCheck(BaseHealthCheck):
                 gpus.append({
                     "index": int(parts[0]),
                     "name": parts[1],
-                    "utilization": int(parts[2]),
-                    "memory_used": int(parts[3]),
-                    "memory_total": int(parts[4]),
-                    "temperature": int(parts[5]),
+                    "utilization": _parse_int(parts[2]),
+                    "memory_used": _parse_int(parts[3]),
+                    "memory_total": _parse_int(parts[4]),
+                    "temperature": _parse_int(parts[5]),
                 })
             except (ValueError, IndexError):
                 continue
@@ -65,8 +73,10 @@ class GPUCheck(BaseHealthCheck):
                 message="No GPU data parsed",
             )
 
-        max_util = max(g["utilization"] for g in gpus)
-        max_temp = max(g["temperature"] for g in gpus)
+        utils = [g["utilization"] for g in gpus if g["utilization"] is not None]
+        temps = [g["temperature"] for g in gpus if g["temperature"] is not None]
+        max_util = max(utils) if utils else 0
+        max_temp = max(temps) if temps else 0
 
         if max_temp > self.warning_temp + 10 or max_util > 95:
             status = CheckStatus.CRITICAL
@@ -77,12 +87,16 @@ class GPUCheck(BaseHealthCheck):
 
         lines = []
         for g in gpus:
-            mem_pct = (g["memory_used"] / g["memory_total"] * 100) if g["memory_total"] else 0
-            lines.append(
-                f"GPU{g['index']}: {g['utilization']}% | "
-                f"{g['memory_used']}/{g['memory_total']}MB ({mem_pct:.0f}%) | "
-                f"{g['temperature']}°C"
-            )
+            util_str = f"{g['utilization']}%" if g["utilization"] is not None else "N/A"
+            temp_str = f"{g['temperature']}°C" if g["temperature"] is not None else "N/A"
+            if g["memory_used"] is not None and g["memory_total"] is not None:
+                mem_pct = g["memory_used"] / g["memory_total"] * 100
+                mem_str = f"{g['memory_used']}/{g['memory_total']}MB ({mem_pct:.0f}%)"
+            elif g["memory_used"] is not None:
+                mem_str = f"{g['memory_used']}MB"
+            else:
+                mem_str = "unified memory"
+            lines.append(f"GPU{g['index']}: {util_str} | {mem_str} | {temp_str}")
 
         return HealthCheckResult(
             name=self.name,
