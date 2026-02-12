@@ -78,9 +78,11 @@ class GPUCheck(BaseHealthCheck):
         max_util = max(utils) if utils else 0
         max_temp = max(temps) if temps else 0
 
-        if max_temp > self.warning_temp + 10 or max_util > 95:
+        # For inference servers, high utilization is normal.
+        # Only temperature is a real concern.
+        if max_temp > self.warning_temp + 10:
             status = CheckStatus.CRITICAL
-        elif max_temp > self.warning_temp or max_util > self.warning_util:
+        elif max_temp > self.warning_temp:
             status = CheckStatus.WARNING
         else:
             status = CheckStatus.OK
