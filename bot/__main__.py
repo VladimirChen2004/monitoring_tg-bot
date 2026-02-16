@@ -5,10 +5,11 @@ from pathlib import Path
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.types import BotCommand
 
 from bot.config import get_settings
 from bot.db.engine import create_engine, create_session_factory, init_db
-from bot.handlers import gpu, health, notifications, start, tasks, users
+from bot.handlers import gpu, health, menu, notifications, start, tasks, users
 from bot.middlewares.auth import AuthMiddleware, DatabaseMiddleware
 from bot.notifications.engine import NotificationEngine
 from bot.tasks.documentation import DocumentationPipelineTask
@@ -60,12 +61,19 @@ async def main():
     dp.include_router(health.router)
     dp.include_router(gpu.router)
     dp.include_router(notifications.router)
+    dp.include_router(menu.router)
 
     # Notification engine
     notification_engine = NotificationEngine(bot, registry, session_factory, settings)
 
     async def on_startup():
         await notification_engine.start()
+        await bot.set_my_commands([
+            BotCommand(command="status", description="Статус сервера"),
+            BotCommand(command="check", description="Проверить задачу"),
+            BotCommand(command="gpu", description="Состояние GPU"),
+            BotCommand(command="help", description="Все команды"),
+        ])
         me = await bot.get_me()
         logger.info("Bot started: @%s", me.username)
 
